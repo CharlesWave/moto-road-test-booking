@@ -20,8 +20,8 @@ All times are America/Vancouver.
 | `ICBC class 6 – midnight burst` | fires at 11:57pm | `watch` checks at 12:00, 12:02, …, 12:10am |
 
 1. Each firing starts a fresh cloud session with the Gmail connector attached. That session follows [`ROUTINE.md`](ROUTINE.md).
-2. The Python CLI logs in, searches every office and filters the slots. When a slot qualifies, it **locks** the slot and asks ICBC to email a verification code.
-3. Claude reads the code from Gmail and runs `confirm` to complete the booking. It then emails you and disables both Routines.
+2. The Python CLI logs in, searches every office and filters the slots. When a slot qualifies, it starts headless Chromium (`icbc_booker/browser.js`), which signs in through ICBC's web app, **locks** the slot and asks ICBC to email a verification code. ICBC rejects the lock/book calls from plain HTTP clients, so this part runs in a real browser.
+3. Claude reads the code from Gmail and runs `confirm`, which passes it to the waiting browser to verify and book. It then emails you and disables both Routines.
 4. If a slot qualifies but ICBC refuses the lock, you get an email alert right away so you can book it by hand.
 5. If a qualifying booking already exists, every run stops with `ALREADY_BOOKED`.
 
@@ -32,10 +32,14 @@ The CLI reads three environment variables, which are set in the cloud environmen
 ```
 python3 -m icbc_booker check [--book] [--verbose]      # one search (read-only without --book)
 python3 -m icbc_booker watch --start 00:00 --until 00:10 --every 120 [--book]
-python3 -m icbc_booker confirm --code 123456 [--relogin]
+python3 -m icbc_booker confirm --code 123456
+python3 -m icbc_booker test-lock [--pos 11]             # lock (never book) a non-qualifying slot to test the browser path
 python3 -m icbc_booker status                          # current appointments
 python3 -m unittest discover -s tests -t .             # tests
 ```
+
+## Permissions
+`.claude/settings.json` pre-approves `python3 -m icbc_booker …`, so scheduled runs can lock and book without a permission prompt.
 
 ## Stopping it
 Ask Claude to disable, or delete, the two Routines above. You can also pause them from the Routines page on claude.ai.

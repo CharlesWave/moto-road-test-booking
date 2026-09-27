@@ -15,13 +15,11 @@ import datetime as dt
 import json
 import sys
 import time
-from pathlib import Path
 
-from . import config
-from .api import IcbcClient, IcbcError, booked_ts, now_local
+from . import browser, config
+from .api import IcbcClient, IcbcError, now_local
 from .filters import describe, is_acceptable, pick_order, slot_date
 
-STATE = Path(__file__).resolve().parent.parent / ".state" / "pending.json"
 TERMINAL = {"OTP_SENT", "FOUND_NOT_LOCKED", "ALREADY_BOOKED", "WINDOW_CLOSED", "BOOKED"}
 
 
@@ -103,22 +101,13 @@ def run_check(book=False, verbose=False):
 
 
 def lock_and_send_otp(client, candidates, result):
-    drvr_id = client.user["drvrId"]
     lock_errors = []
     for slot in candidates:
-        ts = booked_ts()
-        try:
-            client.lock(slot, ts)
-        except IcbcError as e:
-            lock_errors.append({"slot": describe(slot), "error": str(e)})
-            continue
-        client.send_otp(drvr_id, ts)
-        STATE.parent.mkdir(exist_ok=True)
-        STATE.write_text(json.dumps({
-            "token": client.token, "drvrId": drvr_id, "bookedTs": ts, "slot": slot,
-        }))
-        result.update(status="OTP_SENT", locked=describe(slot), otp_method=config.OTP_METHOD)
-        break
+        st = browser.start(slot, client.user["drvrId"])
+        if st["status"] == "OTP_SENT":
+            result.update(status="OTP_SENT", locked=describe(slot), otp_method=config.OTP_METHOD)
+            break
+        lock_errors.append({"slot": describe(slot), "browser": st})
     else:
         result.update(status="FOUND_NOT_LOCKED", note="acceptable slots found but none could be locked")
     if lock_errors:
@@ -173,25 +162,27 @@ def cmd_watch(args):
 
 
 def cmd_confirm(args):
+    st = browser.submit_code(args.code)
+    if st["status"] != "BOOKED":
+        return emit(st)
     try:
-        pending = json.loads(STATE.read_text())
-    except FileNotFoundError:
-        return emit({"status": "ERROR", "error": "no pending lock; run `check --book` first"})
-    client = IcbcClient(token=pending["token"])
-    drvr_id, ts = pending["drvrId"], pending["bookedTs"]
-    try:
-        if args.relogin:
-            client.login()
-        v =client.verify_otp(drvr_id, ts, args.code.strip())
-        if (v or {}).get("status") != "VERIFIED":
-            return emit({"status": "ERROR", "error": f"code not verified: {v}"})
-        booking = client.book(drvr_id)
-        user = client.login()
-    except Exception as e:  # noqa: BLE001
-        return emit({"status": "ERROR", "error": f"{type(e).__name__}: {e}"})
-    STATE.unlink(missing_ok=True)
-    return emit({"status": "BOOKED", "slot": describe(pending["slot"]), "icbc_response": booking,
-                 "appointments": summarize_appts(user)})
+        user = IcbcClient().login()
+    except Exception as e:  # noqa: BLE001 - booking already succeeded; just report
+        return emit({**st, "verify_error": f"{type(e).__name__}: {e}"})
+    return emit({**st, "appointments": summarize_appts(user)})
+
+
+def cmd_test_lock(args):
+    """Lock (never book) a slot that does NOT meet the rules, to prove the browser path works."""
+    client = IcbcClient()
+    user = client.login()
+    today = now_local().date()
+    slots = client.available(args.pos, today + dt.timedelta(days=1))
+    bad = [s for s in slots if not is_acceptable(s, today)]
+    if not bad:
+        return emit({"status": "ERROR", "error": "no non-qualifying slot to test with"})
+    st = browser.start(bad[-1], user["drvrId"], lock_only=True)
+    return emit({**st, "slot": describe(bad[-1])})
 
 
 def cmd_status(args):
@@ -223,8 +214,11 @@ def main(argv=None):
 
     f = sub.add_parser("confirm", help="finish a locked booking with the emailed code")
     f.add_argument("--code", required=True)
-    f.add_argument("--relogin", action="store_true", help="log in fresh instead of reusing the saved token")
     f.set_defaults(fn=cmd_confirm)
+
+    t = sub.add_parser("test-lock", help="lock (never book) a non-qualifying slot via the browser")
+    t.add_argument("--pos", type=int, default=11)
+    t.set_defaults(fn=cmd_test_lock)
 
     s = sub.add_parser("status", help="show current ICBC appointments")
     s.set_defaults(fn=cmd_status)

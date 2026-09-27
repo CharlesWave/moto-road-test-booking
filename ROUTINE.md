@@ -22,8 +22,12 @@ Every command prints JSON lines, and the `status` of the last line decides what 
 | `ERROR` | Email the user once, subject `ICBC monitor error`, with the `error` text. Don't loop or retry more than once. |
 
 ## 4. Finish the booking (only after `OTP_SENT`)
+A headless Chromium session (`icbc_booker/browser.js`) is holding the lock. It waits up to 12 minutes for the code, so move quickly.
 1. Search Gmail for the ICBC code with `search_threads`. Try `from:icbc.com newer_than:1h` first, then `ICBC verification code newer_than:1h`. Open the newest message and pull out the numeric code. If it hasn't arrived yet, wait about 20 seconds and search again, for up to about 3 minutes.
-2. Run `python3 -m icbc_booker confirm --code <CODE>`. If that fails with an auth error, run it again with `--relogin` added.
+2. Run `python3 -m icbc_booker confirm --code <CODE>`. It hands the code to the waiting browser, which verifies it and books. The command waits up to 2 minutes for the result.
+   - `BOOKED`: go to step 3.
+   - `OTP_REJECTED`: check for a newer ICBC email and run `confirm` again with that code. You get 3 tries in total.
+   - `OTP_TIMEOUT` or `ERROR`: email the user, subject `ICBC booking failed`, with the slot and the error. Leave the Routines enabled.
 3. Check the booking with `python3 -m icbc_booker status`. It should report `ALREADY_BOOKED`.
 4. Email the user with the date, time and office. Use Gmail `send_message` to the account's own address, subject `ICBC road test BOOKED`.
 5. Disable both Routines (step 5).

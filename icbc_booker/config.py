@@ -21,5 +21,5 @@ LAST_ACCEPTABLE_DATE = dt.date(2026, 10, 24)  # test must be before Oct 25
 MIN_LEAD_DAYS = 1  # tomorrow is the earliest acceptable day
 WEEKDAY_EARLIEST_START = dt.time(14, 0)  # Mon-Fri: start at or after 2pm; Sat/Sun: any time
 
-OTP_METHOD = "E"  # "E" = email, "S" = SMS
+OTP_METHOD = "E"  # email (browser.js sends "E")
 MAX_LOCK_ATTEMPTS = 5

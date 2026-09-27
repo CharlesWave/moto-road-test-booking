@@ -1,4 +1,7 @@
-"""Thin client for ICBC's driver-exam booking API (the one behind onlinebusiness.icbc.com/webdeas-ui)."""
+"""Thin client for ICBC's driver-exam booking API (the one behind onlinebusiness.icbc.com/webdeas-ui).
+
+Only login and search live here: ICBC rejects lock/OTP/book from plain HTTP clients, so those run
+in a real browser session (browser.js)."""
 import datetime as dt
 import os
 
@@ -15,13 +18,8 @@ def now_local():
     return dt.datetime.now(config.TZ)
 
 
-def booked_ts(when=None):
-    """Timestamp format the web UI sends with lock/OTP calls: local YYYY-MM-DDTHH:MM:SS."""
-    return (when or now_local()).strftime("%Y-%m-%dT%H:%M:%S")
-
-
 class IcbcClient:
-    def __init__(self, last_name=None, licence=None, keyword=None, token=None, timeout=20):
+    def __init__(self, last_name=None, licence=None, keyword=None, timeout=20):
         self.last_name = last_name or os.environ["ICBC_LAST_NAME"]
         self.licence = licence or os.environ["ICBC_LICENCE"]
         self.keyword = keyword or os.environ["ICBC_KEYWORD"]
@@ -36,12 +34,6 @@ class IcbcClient:
             "Content-Type": "application/json",
             "Cache-Control": "no-cache, no-store",
         })
-        if token:
-            self.s.headers["Authorization"] = token
-
-    @property
-    def token(self):
-        return self.s.headers.get("Authorization")
 
     def login(self):
         r = self.s.put(config.API_BASE + "/webLogin/webLogin", timeout=self.timeout, json={
@@ -74,30 +66,3 @@ class IcbcClient:
             "lastName": self.user["lastName"],
             "licenseNumber": self.user["licenseNumber"],
         }) or []
-
-    def lock(self, slot, ts):
-        return self._call("PUT", "/web/lock", {
-            "appointmentDt": slot["appointmentDt"],
-            "dlExam": slot["dlExam"],
-            "drvrDriver": {"drvrId": self.user["drvrId"]},
-            "drscDrvSchl": {},
-            "instructorDlNum": None,
-            "bookedTs": ts,
-            "startTm": slot["startTm"],
-            "endTm": slot["endTm"],
-            "posId": slot["posId"],
-            "resourceId": slot["resourceId"],
-            "signature": slot["signature"],
-        })
-
-    def send_otp(self, drvr_id, ts, method=config.OTP_METHOD):
-        return self._call("POST", "/web/sendOTP", {"bookedTs": ts, "drvrID": drvr_id, "method": method})
-
-    def verify_otp(self, drvr_id, ts, code):
-        return self._call("PUT", "/web/verifyOTP", {"bookedTs": ts, "drvrID": drvr_id, "code": code})
-
-    def book(self, drvr_id):
-        return self._call("PUT", "/web/book", {
-            "userId": f"WEBD:{drvr_id}",
-            "appointment": {"drvrDriver": {"drvrId": drvr_id}},
-        })
