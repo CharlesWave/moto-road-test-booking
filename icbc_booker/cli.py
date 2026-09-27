@@ -3,6 +3,7 @@
 Statuses:
   NO_SLOTS        nothing acceptable right now
   FOUND           acceptable slots exist (check without --book)
+  FOUND_NOT_LOCKED acceptable slots exist but locking failed -> alert the user to book by hand
   OTP_SENT        best slot locked and a verification code emailed -> run `confirm --code`
   BOOKED          booking confirmed
   ALREADY_BOOKED  an acceptable Class 6 booking already exists -> stop monitoring
@@ -21,7 +22,7 @@ from .api import IcbcClient, IcbcError, booked_ts, now_local
 from .filters import describe, is_acceptable, pick_order, slot_date
 
 STATE = Path(__file__).resolve().parent.parent / ".state" / "pending.json"
-TERMINAL = {"OTP_SENT", "ALREADY_BOOKED", "WINDOW_CLOSED", "BOOKED"}
+TERMINAL = {"OTP_SENT", "FOUND_NOT_LOCKED", "ALREADY_BOOKED", "WINDOW_CLOSED", "BOOKED"}
 
 
 def emit(obj):
@@ -119,7 +120,7 @@ def lock_and_send_otp(client, candidates, result):
         result.update(status="OTP_SENT", locked=describe(slot), otp_method=config.OTP_METHOD)
         break
     else:
-        result.update(status="NO_SLOTS", note="acceptable slots found but none could be locked")
+        result.update(status="FOUND_NOT_LOCKED", note="acceptable slots found but none could be locked")
     if lock_errors:
         result["lock_errors"] = lock_errors
     return result

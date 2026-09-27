@@ -16,6 +16,7 @@ Every command prints JSON lines, and the `status` of the last line decides what 
 |---|---|
 | `NO_SLOTS` | Nothing to do. End the session with a one-line summary. Don't send any email. |
 | `OTP_SENT` | A slot is **locked** and ICBC has emailed a verification code. Go to step 4 **immediately**, because the lock is short. |
+| `FOUND_NOT_LOCKED` | An acceptable slot exists, but ICBC refused the lock. **Email the user immediately**, subject `ICBC slot available – book now`. Include every entry in `acceptable` (date, time, office) plus the `lock_errors`, and link to https://onlinebusiness.icbc.com/webdeas-ui/home. Leave the Routines enabled. |
 | `ALREADY_BOOKED` | You're done. Disable both Routines (step 5). |
 | `WINDOW_CLOSED` | Oct 24 has passed. Disable both Routines (step 5) and email the user that no slot was found. |
 | `ERROR` | Email the user once, subject `ICBC monitor error`, with the `error` text. Don't loop or retry more than once. |

@@ -22,7 +22,8 @@ All times are America/Vancouver.
 1. Each firing starts a fresh cloud session with the Gmail connector attached. That session follows [`ROUTINE.md`](ROUTINE.md).
 2. The Python CLI logs in, searches every office and filters the slots. When a slot qualifies, it **locks** the slot and asks ICBC to email a verification code.
 3. Claude reads the code from Gmail and runs `confirm` to complete the booking. It then emails you and disables both Routines.
-4. If a qualifying booking already exists, every run stops with `ALREADY_BOOKED`.
+4. If a slot qualifies but ICBC refuses the lock, you get an email alert right away so you can book it by hand.
+5. If a qualifying booking already exists, every run stops with `ALREADY_BOOKED`.
 
 ## Credentials
 The CLI reads three environment variables, which are set in the cloud environment: `ICBC_LAST_NAME`, `ICBC_LICENCE` and `ICBC_KEYWORD`. Nothing else is stored.
