@@ -33,4 +33,4 @@ A headless Chromium session (`icbc_booker/browser.js`) is holding the lock. It w
 5. Disable both Routines (step 5).
 
 ## 5. Disable monitoring
-Call `list_triggers`, find the Routines named `ICBC class 6 – hourly check` and `ICBC class 6 – midnight burst`, and call `update_trigger` with `enabled: false` on each one.
+Call `list_triggers`, find the Routines named `ICBC class 6 – hourly check` and `ICBC class 6 – midnight burst`, and call `update_trigger` with `enabled: false` on each one. If those tools aren't available in this session, say so in the email to the user and ask them to pause both Routines at claude.ai. Later runs are harmless meanwhile: each one stops at `ALREADY_BOOKED` or `WINDOW_CLOSED` without booking.
