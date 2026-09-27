@@ -185,6 +185,22 @@ def cmd_test_lock(args):
     return emit({**st, "slot": describe(bad[-1])})
 
 
+def cmd_book_slot(args):
+    """Book one specific slot, ignoring the date/time rules (manual use)."""
+    try:
+        client = IcbcClient()
+        user = client.login()
+        day = dt.date.fromisoformat(args.date)
+        slot = next((s for s in client.available(args.pos, day)
+                     if s["appointmentDt"]["date"] == args.date and s["startTm"] == args.start), None)
+    except Exception as e:  # noqa: BLE001
+        return emit({"status": "ERROR", "error": f"{type(e).__name__}: {e}"})
+    if slot is None:
+        return emit({"status": "GONE", "wanted": vars(args) | {"fn": None}})
+    st = browser.start(slot, user["drvrId"])
+    return emit({**st, "slot": describe(slot)})
+
+
 def cmd_status(args):
     try:
         user = IcbcClient().login()
@@ -219,6 +235,12 @@ def main(argv=None):
     t = sub.add_parser("test-lock", help="lock (never book) a non-qualifying slot via the browser")
     t.add_argument("--pos", type=int, default=11)
     t.set_defaults(fn=cmd_test_lock)
+
+    b = sub.add_parser("book-slot", help="lock one specific slot and email a code (then run confirm)")
+    b.add_argument("--pos", type=int, required=True)
+    b.add_argument("--date", required=True, help="YYYY-MM-DD")
+    b.add_argument("--start", required=True, help="HH:MM, 24h")
+    b.set_defaults(fn=cmd_book_slot)
 
     s = sub.add_parser("status", help="show current ICBC appointments")
     s.set_defaults(fn=cmd_status)

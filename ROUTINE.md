@@ -23,7 +23,7 @@ Every command prints JSON lines, and the `status` of the last line decides what 
 
 ## 4. Finish the booking (only after `OTP_SENT`)
 A headless Chromium session (`icbc_booker/browser.js`) is holding the lock. It waits up to 12 minutes for the code, so move quickly.
-1. Search Gmail for the ICBC code with `search_threads`. Try `from:icbc.com newer_than:1h` first, then `ICBC verification code newer_than:1h`. Open the newest message and pull out the numeric code. If it hasn't arrived yet, wait about 20 seconds and search again, for up to about 3 minutes.
+1. Search Gmail for the ICBC code with `search_threads`. Use `from:roadtests-donotreply@icbc.com newer_than:1h`, and if that finds nothing, `subject:(verification code) road test newer_than:1h`. The email's subject is "Verification code to book a road test" and the 6-digit code is in the snippet ("…on the verification screen. 123456 …"). Take the code from the newest message, sent after the `OTP_SENT` time. If it hasn't arrived yet, wait about 20 seconds and search again, for up to about 3 minutes.
 2. Run `python3 -m icbc_booker confirm --code <CODE>`. It hands the code to the waiting browser, which verifies it and books. The command waits up to 2 minutes for the result.
    - `BOOKED`: go to step 3.
    - `OTP_REJECTED`: check for a newer ICBC email and run `confirm` again with that code. You get 3 tries in total.
